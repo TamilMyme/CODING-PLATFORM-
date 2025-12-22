@@ -61,7 +61,7 @@ const SelectDropDown: React.FC<CustomSelectProps> = ({
       {label && (
         <label className="block mb-1 font-medium">
           {label}
-          {required && "*"}
+          {required && <span className=" text-red-600 px-2">*</span>}
         </label>
       )}
 

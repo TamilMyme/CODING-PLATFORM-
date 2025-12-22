@@ -1,5 +1,9 @@
-import { useLocation } from "react-router-dom";
-import { BellIcon, CreditCardIcon, UserIcon } from "@heroicons/react/24/outline";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  BellIcon,
+  CreditCardIcon,
+  UserIcon,
+} from "@heroicons/react/24/outline";
 import Breadcrumbs, { type BreadcrumbItem } from "./Breadcrumbs";
 import { Squares2X2Icon } from "@heroicons/react/24/outline";
 import Avatar from "./Avatar";
@@ -8,6 +12,8 @@ import { useState } from "react";
 import MenuPopup from "./MenuPopup";
 import { LuLogOut } from "react-icons/lu";
 import formatSegment from "../../utils/formatSegment";
+import UserApis from "../../apis/UserApis";
+import { useAuth } from "../../context/AuthProvider";
 
 const Header: React.FC<{
   collapsed: boolean;
@@ -15,6 +21,8 @@ const Header: React.FC<{
 }> = ({ collapsed, setCollapsed }) => {
   const location = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { user, setLogin, setUser } = useAuth();
+  const navigate = useNavigate();
 
   const pathSegments = location.pathname.split("/").filter(Boolean);
 
@@ -73,8 +81,8 @@ const Header: React.FC<{
           <div className=" relative">
             <div onClick={() => setDropdownOpen(true)}>
               <Avatar
-                name="John Doe"
-                email="john@example.com"
+                name={user?.name || "User"}
+                email={user?.email || "john@example.com"}
                 collapsed={true}
               />
             </div>
@@ -85,7 +93,10 @@ const Header: React.FC<{
               >
                 <ul className="space-y-1 text-[#1d1d1f] p-2">
                   <li>
-                    <Avatar name="John Doe" email="john@example.com" />
+                    <Avatar
+                      name={user?.name || "User"}
+                      email={user?.email || "john@example.com"}
+                    />
                   </li>
                   <hr />
                   <li className="flex items-center space-x-2 hover:bg-gray-200 p-2 rounded-md">
@@ -101,7 +112,19 @@ const Header: React.FC<{
                     <span>Notifications</span>
                   </li>
                   <hr />
-                  <li className="flex items-center space-x-2 hover:bg-gray-200 p-2 rounded-md cursor-pointer">
+                  <li
+                    className="flex items-center space-x-2 hover:bg-gray-200 p-2 rounded-md cursor-pointer"
+                    onClick={() => {
+                      UserApis.signOut()
+                        .then(() => {
+                          setLogin(false);
+                          setUser(null);
+                          alert("Logout successfully");
+                          navigate("/login");
+                        })
+                        .catch(() => alert("Logout faild"));
+                    }}
+                  >
                     <LuLogOut className="w-5 h-5 text-red-500" />
                     <span>Log out</span>
                   </li>

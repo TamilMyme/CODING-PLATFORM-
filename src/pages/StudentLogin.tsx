@@ -6,9 +6,10 @@ import { LockClosedIcon } from '@heroicons/react/24/outline';
 import { GoEye, GoEyeClosed } from 'react-icons/go';
 import { CgMail } from 'react-icons/cg';
 import { useAuth } from '../context/AuthProvider';
-import UserApis from '../apis/UserApis';
+// import UserApis from '../apis/UserApis';
+import StudentApis from '../apis/StudentApis';
 
-const LoginPage: React.FC = () => {
+const StudentLogin: React.FC = () => {
   const {user,setLogin,isLogin,setUser,setIsLoading} = useAuth()
   const [form, setForm] = useState({
     email: '',
@@ -60,7 +61,7 @@ const LoginPage: React.FC = () => {
     }
     setIsLoading(true)
     try {
-        const res = await UserApis.signIn(form) 
+        const res = await StudentApis.signIn(form) 
         setForm({
             email : "",
             password :""
@@ -155,4 +156,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default StudentLogin;

@@ -5,10 +5,14 @@ import {
   Squares2X2Icon,
   Cog6ToothIcon,
   QuestionMarkCircleIcon,
-  SparklesIcon,
+  BuildingLibraryIcon,
 } from "@heroicons/react/24/outline";
 import { GoSidebarCollapse } from "react-icons/go";
 import Tooltip from "./Tooltip";
+import { PiExam, PiRowsFill } from "react-icons/pi";
+import { BiNotepad } from "react-icons/bi";
+import { useAuth } from "../../context/AuthProvider";
+import { MdAssignment, MdCastForEducation } from "react-icons/md";
 
 interface NavItem {
   icon: React.ElementType;
@@ -17,14 +21,10 @@ interface NavItem {
   badge?: string;
 }
 
-const mainNavItems: NavItem[] = [
-  { icon: Squares2X2Icon, label: "Dashboard", path: "/" },
-];
-
-const secondaryNavItems: NavItem[] = [
-  { icon: Cog6ToothIcon, label: "Settings", path: "/settings" },
-  { icon: QuestionMarkCircleIcon, label: "Help", path: "/help" },
-];
+// const secondaryNavItems: NavItem[] = [
+//   { icon: Cog6ToothIcon, label: "Settings", path: "/settings" },
+//   { icon: QuestionMarkCircleIcon, label: "Help", path: "/help" },
+// ];
 
 function Sidebar({
   collapsed,
@@ -34,7 +34,28 @@ function Sidebar({
   setCollapsed: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   // const [dropdownOpen, setDropdownOpen] = useState(false);
+  const { user } = useAuth();
   const location = useLocation();
+
+  const mainNavItems: NavItem[] =
+    user?.role === "super-admin"
+      ? [
+          { icon: Squares2X2Icon, label: "Dashboard", path: "/" },
+          { icon: PiRowsFill, label: "Students", path: "/students" },
+          { icon: BuildingLibraryIcon, label: "Colleges", path: "/colleges" },
+          { icon: BiNotepad, label: "Questions", path: "/questions" },
+          { icon: BiNotepad, label: "Mock Tests", path: "/mock-tests" },
+          { icon: BiNotepad, label: "Users", path: "/users" },
+        ]
+      : user?.role === "student"
+      ? [
+          { icon: Squares2X2Icon, label: "Dashboard", path: "/" },
+          { icon: MdCastForEducation, label: "My Course", path: "/my-course" },
+          { icon: PiExam, label: "Mock Tests", path: "/mock-tests" },
+
+          // { icon: MdAssignment, label: "My Assignments", path: "/my-assignments" },
+        ]
+      : [{ icon: Squares2X2Icon, label: "Dashboard", path: "/" }];
 
   return (
     <aside
@@ -52,10 +73,13 @@ function Sidebar({
             collapsed ? "justify-center w-full" : ""
           }`}
         >
-          <div className="flex items-center justify-center h-10 rounded-lg bg-white/30 my-5 shadow">
-            <img src="./logo.png" alt="logo"/>
+          <div className="flex items-center justify-center h-10 w-full rounded-lg bg-white/30 shadow">
+            <img
+              src="./logo.png"
+              alt="logo"
+              className=" w-full h-full object-cover"
+            />
           </div>
-          
         </div>
 
         <button
@@ -133,7 +157,7 @@ function Sidebar({
           })}
         </ul>
 
-        {!collapsed && (
+        {/* {!collapsed && (
           <h2 className="mt-8 px-3 text-xs font-semibold uppercase mb-2 select-none tracking-wider text-white/70">
             Support
           </h2>
@@ -185,7 +209,7 @@ function Sidebar({
               </li>
             );
           })}
-        </ul>
+        </ul> */}
       </nav>
 
       {/* User Section */}

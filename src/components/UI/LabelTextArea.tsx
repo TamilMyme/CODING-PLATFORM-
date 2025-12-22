@@ -38,7 +38,7 @@ const LabelTextArea: React.FC<TextAreaProps> = ({
         disabled={disabled}
         aria-invalid={!!error}
         aria-describedby={error ? `${name}-error` : undefined}
-        className={`bg-dash block w-full p-2 rounded-md outline-none resize-y focus:border focus:border-secondary ${
+        className={`bg-gray-100 block w-full p-2 rounded-md outline-none resize-y focus:border focus:border-[#465D96] ${
           error ? "border-red-500 focus:border-red-600" : ""
         } ${className}`}
         rows={4}
