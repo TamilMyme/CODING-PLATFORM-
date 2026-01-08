@@ -44,7 +44,7 @@ function Sidebar({
           { icon: PiRowsFill, label: "Students", path: "/students" },
           { icon: BuildingLibraryIcon, label: "Colleges", path: "/colleges" },
           { icon: BiNotepad, label: "Questions", path: "/questions" },
-          { icon: BiNotepad, label: "Mock Tests", path: "/mock-tests" },
+          { icon: BiNotepad, label: "Mock Tests", path: "/tests" },
           { icon: BiNotepad, label: "Users", path: "/users" },
         ]
       : user?.role === "student"

@@ -1,47 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ClockIcon,
   DocumentTextIcon,
   PlayCircleIcon,
 } from "@heroicons/react/24/outline";
-
-const mockTests = [
-  {
-    id: 1,
-    title: "Java DSA Mock Test – 1",
-    description: "Arrays, Strings & Time Complexity",
-    duration: 90,
-    totalMarks: 100,
-    attemptsLeft: 1,
-    startTime: "2024-05-01 10:00 AM",
-    endTime: "2024-05-01 11:30 AM",
-    isPublished: true,
-  },
-  {
-    id: 2,
-    title: "Python Programming Test",
-    description: "Functions, Loops & OOP",
-    duration: 60,
-    totalMarks: 80,
-    attemptsLeft: 0,
-    startTime: "2024-04-20 02:00 PM",
-    endTime: "2024-04-20 03:00 PM",
-    isPublished: false,
-  },
-  {
-    id: 3,
-    title: "C Programming Mock",
-    description: "Pointers & Memory Management",
-    duration: 75,
-    totalMarks: 90,
-    attemptsLeft: 2,
-    startTime: "2024-05-05 09:00 AM",
-    endTime: "2024-05-05 10:15 AM",
-    isPublished: false,
-  },
-];
+import MockTestApis from "../apis/MockTestApis";
+import type { IMockTest } from "../types/interfaces";
+import { useNavigate } from "react-router-dom";
 
 const MockTestList = () => {
+  const [mockTests, setMockTests] = useState<IMockTest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchMockTests = async () => {
+      try {
+        const res = await MockTestApis.getAllMockTests();
+        setMockTests(res.data.mockTests);
+      } catch (err) {
+        setError("Failed to load mock tests");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMockTests();
+  }, []);
+
+  if (loading) {
+    return <p className="text-center py-10">Loading mock tests...</p>;
+  }
+
+  if (error) {
+    return <p className="text-center py-10 text-red-500">{error}</p>;
+  }
+
   return (
     <div className="min-h-screen">
       <div className="mx-auto">
@@ -56,68 +51,77 @@ const MockTestList = () => {
 
         {/* TEST LIST */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {mockTests.map((test) => (
-            <div
-              key={test.id}
-              className="bg-white/80 backdrop-blur rounded-2xl shadow-sm hover:shadow-md transition border p-5 flex flex-col"
-            >
-              {/* STATUS */}
-              <div className="flex items-center justify-between mb-3">
-                <span
-                  className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                    test.isPublished
-                      ? "bg-green-100 text-green-700"
-                      : "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {test.isPublished ? "LIVE NOW" : "UPCOMING / ENDED"}
-                </span>
+          {mockTests.map((test) => {
+            const now = new Date();
+            const isLive =
+              test.isPublished &&
+              (!test.startTime || new Date(test.startTime) <= now) &&
+              (!test.endTime || new Date(test.endTime) >= now);
 
-                <span className="text-xs text-gray-500">
-                  {test.attemptsLeft} Attempts Left
-                </span>
-              </div>
-
-              {/* TITLE */}
-              <h2 className="font-semibold text-lg text-gray-900 mb-1">
-                {test.title}
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                {test.description}
-              </p>
-
-              {/* INFO */}
-              <div className="space-y-2 text-sm text-gray-600 mb-4">
-                <div className="flex items-center gap-2">
-                  <ClockIcon className="w-4 h-4" />
-                  Duration: {test.duration} mins
-                </div>
-                <div className="flex items-center gap-2">
-                  <DocumentTextIcon className="w-4 h-4" />
-                  Total Marks: {test.totalMarks}
-                </div>
-              </div>
-
-              {/* TIME */}
-              <div className="text-xs text-gray-500 mb-4">
-                <p>Start: {test.startTime}</p>
-                <p>End: {test.endTime}</p>
-              </div>
-
-              {/* ACTION */}
-              <button
-                disabled={!test.isPublished || test.attemptsLeft === 0}
-                className={`mt-auto flex items-center justify-center gap-2 py-2 rounded-xl transition font-medium ${
-                  test.isPublished && test.attemptsLeft > 0
-                    ? "bg-[#465D96] hover:bg-[#3b4f85] text-white"
-                    : "bg-gray-200 text-gray-500 cursor-not-allowed"
-                }`}
+            return (
+              <div
+                key={test._id}
+                className="bg-white/80 backdrop-blur rounded-2xl shadow-sm hover:shadow-md transition border p-5 flex flex-col"
               >
-                <PlayCircleIcon className="w-5 h-5" />
-                Start Test
-              </button>
-            </div>
-          ))}
+                {/* STATUS */}
+                <div className="flex items-center justify-between mb-3">
+                  <span
+                    className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                      isLive
+                        ? "bg-green-100 text-green-700"
+                        : "bg-gray-100 text-gray-600"
+                    }`}
+                  >
+                    {isLive ? "LIVE NOW" : "UPCOMING / ENDED"}
+                  </span>
+
+                  <span className="text-xs text-gray-500">
+                    {test.allowedAttempts} Attempts Allowed
+                  </span>
+                </div>
+
+                {/* TITLE */}
+                <h2 className="font-semibold text-lg text-gray-900 mb-1">
+                  {test.title}
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  {test.description}
+                </p>
+
+                {/* INFO */}
+                <div className="space-y-2 text-sm text-gray-600 mb-4">
+                  <div className="flex items-center gap-2">
+                    <ClockIcon className="w-4 h-4" />
+                    Duration: {test.duration} mins
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DocumentTextIcon className="w-4 h-4" />
+                    Total Marks: {test.totalMarks}
+                  </div>
+                </div>
+
+                {/* TIME */}
+                <div className="text-xs text-gray-500 mb-4">
+                  {test.startTime && <p>Start: {new Date(test.startTime).toLocaleString()}</p>}
+                  {test.endTime && <p>End: {new Date(test.endTime).toLocaleString()}</p>}
+                </div>
+
+                {/* ACTION */}
+                <button
+                  disabled={!isLive}
+                  className={`mt-auto flex items-center justify-center gap-2 py-2 rounded-xl transition font-medium ${
+                    isLive
+                      ? "bg-[#465D96] hover:bg-[#3b4f85] text-white"
+                      : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                  }`}
+                  onClick={()=>navigate(`/skill-brains/${test._id}`)}
+                >
+                  <PlayCircleIcon className="w-5 h-5" />
+                  Start Test
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {/* EMPTY STATE */}

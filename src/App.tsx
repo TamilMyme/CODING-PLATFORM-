@@ -8,13 +8,14 @@ import College from "./pages/College";
 import Question from "./pages/Question";
 import MockTest from "./pages/MockTest";
 import AuthProvider from "./context/AuthProvider";
-import Dashui from "./components/Dashui";
+// import Dashui from "./components/Dashui";
 import Moctest from "./components/Moctest";
 import Users from "./pages/Users";
 import StudentLogin from "./pages/StudentLogin";
 import Course from "./pages/Course";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MockTestList from "./pages/Assigments";
+import './App.css'
 
 const App: React.FC = () => {
   3;
@@ -84,7 +85,7 @@ const App: React.FC = () => {
               }
             />
             <Route
-              path="/mock-tests"
+              path="/tests"
               element={
                 <Layout>
                   <MockTest />
@@ -96,14 +97,6 @@ const App: React.FC = () => {
               element={
                 <Layout>
                   <Users />
-                </Layout>
-              }
-            />
-            <Route
-              path="/mock-tests"
-              element={
-                <Layout>
-                  <MockTest />
                 </Layout>
               }
             />
@@ -121,6 +114,7 @@ const App: React.FC = () => {
           <Route path="/assign" element={<Moctest />} />
           <Route path="/admin/login" element={<LoginPage />} />
           <Route path="/login" element={<StudentLogin />} />
+          <Route path="/skill-brains/:testId" element={<Moctest/>}/>
         </Routes>
       </BrowserRouter>
     </AuthProvider>

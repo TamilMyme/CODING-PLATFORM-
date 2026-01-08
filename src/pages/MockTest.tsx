@@ -343,7 +343,7 @@ const MockTest: React.FC = () => {
                             <input
                               type="datetime-local"
                               name={time}
-                              value={formData[time] || ""}
+                              value={formData[time]?.slice(0,16) || ""}
                               onChange={handleInputChange}
                               className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-sm focus:border-[#465D96] focus:ring-2 focus:ring-[#465D96]/30"
                             />

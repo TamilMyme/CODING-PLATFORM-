@@ -15,7 +15,7 @@ export default function OverviewPage() {
       }
     },[user])
 
-  if(user?.role==="student"){
+  if(user&&user?.role==="student"){
     return <Dashui/>
   }
 

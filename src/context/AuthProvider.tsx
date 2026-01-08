@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import UserApis from "../apis/UserApis";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 import StudentApis from "../apis/StudentApis";
 
 interface User {

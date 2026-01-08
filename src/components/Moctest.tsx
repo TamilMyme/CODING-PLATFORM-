@@ -1,539 +1,612 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { ClockIcon } from "@heroicons/react/24/outline";
+import React, { useState, useEffect } from "react";
+import {
+  ClockIcon,
+  CodeBracketIcon,
+  ListBulletIcon,
+  CheckCircleIcon,
+  BookmarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DocumentCheckIcon,
+  ArrowPathIcon,
+  AcademicCapIcon,
+} from "@heroicons/react/24/outline";
+import {
+  CheckCircleIcon as CheckCircleSolidIcon,
+  BookmarkIcon as BookmarkSolidIcon,
+} from "@heroicons/react/24/solid";
+import Editor from "@monaco-editor/react";
 import Avatar from "./UI/Avatar";
+import { useAuth } from "../context/AuthProvider";
+import { useParams } from "react-router-dom";
+import MockTestApis from "../apis/MockTestApis";
+import type { IMockTest } from "../types/interfaces";
 
-// Types
-interface Question {
-  id: number;
-  question: string;
-  options: string[];
-}
+/* ================= TYPES ================= */
+
 
 interface QuizState {
   currentQuestion: number;
   selectedAnswers: Record<number, number[]>;
-  timeRemaining: number; // in seconds
+  codeAnswers: Record<number, string>;
+  timeRemaining: number;
+  bookmarked: Set<number>;
 }
 
-// Mock questions data
-const questions: Question[] = [
-  {
-    id: 1,
-    question: "Which of the following is a popular programming language for developing multimedia webpages.",
-    options: [
-      "Java",
-      "Python",
-      "JavaScript",
-      "C++"
-    ]
-  },
-  {
-    id: 2,
-    question: "What is the primary purpose of CSS in web development?",
-    options: [
-      "To structure web pages",
-      "To style and layout web pages",
-      "To add interactivity",
-      "To manage databases"
-    ]
-  },
-  {
-    id: 3,
-    question: "Which HTML tag is used to create a hyperlink?",
-    options: [
-      "<link>",
-      "<a>",
-      "<href>",
-      "<url>"
-    ]
-  },
-  {
-    id: 4,
-    question: "What does API stand for?",
-    options: [
-      "Application Programming Interface",
-      "Advanced Programming Interface",
-      "Automated Programming Interface",
-      "Application Process Integration"
-    ]
-  },
-  {
-    id: 5,
-    question: "Which method is used to add an element to the end of an array in JavaScript?",
-    options: [
-      "push()",
-      "add()",
-      "append()",
-      "insert()"
-    ]
-  },
-  {
-    id: 6,
-    question: "What is React primarily used for?",
-    options: [
-      "Backend development",
-      "Building user interfaces",
-      "Database management",
-      "Server configuration"
-    ]
-  },
-  {
-    id: 7,
-    question: "Which CSS property is used to change the text color?",
-    options: [
-      "text-color",
-      "font-color",
-      "color",
-      "text-style"
-    ]
-  },
-  {
-    id: 8,
-    question: "What is the purpose of the useEffect hook in React?",
-    options: [
-      "To manage component state",
-      "To perform side effects",
-      "To create components",
-      "To handle events"
-    ]
-  },
-  {
-    id: 9,
-    question: "Which operator is used for strict equality in JavaScript?",
-    options: [
-      "==",
-      "===",
-      "=",
-      "!="
-    ]
-  },
-  {
-    id: 10,
-    question: "What does DOM stand for?",
-    options: [
-      "Document Object Model",
-      "Data Object Model",
-      "Document Oriented Model",
-      "Dynamic Object Management"
-    ]
-  }
-];
+/* ================= MOCK DATA ================= */
 
-const TOTAL_QUESTIONS = questions.length;
-const INITIAL_TIME = 14 * 3600 + 44 * 60; // 14:44:00 in seconds
-
-// Timer Component
-const Timer: React.FC<{ timeRemaining: number }> = ({ timeRemaining }) => {
-  const hours = Math.floor(timeRemaining / 3600);
-  const minutes = Math.floor((timeRemaining % 3600) / 60);
-  const seconds = timeRemaining % 60;
-
-  const formatTime = (value: number): string => {
-    return value.toString().padStart(2, "0");
-  };
-
-  return (
-    <div className="flex items-center gap-1.5 text-gray-700">
-      <ClockIcon className="w-4 h-4 md:w-5 md:h-5" />
-      <span className="text-xs md:text-sm font-medium">
-        Time remaining: {formatTime(hours)}:{formatTime(minutes)}:{formatTime(seconds)}
-      </span>
-    </div>
-  );
+const mockTestData = {
+  title: "JavaScript Fundamentals Assessment",
+  description: "Test your knowledge of JavaScript core concepts, ES6+ features, and problem-solving skills.",
+  duration: 60,
+  questions: [
+    {
+      id: "1",      
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>What is the output of the following code?</h3><pre class='bg-[#f1f5f9] p-3 rounded-lg mt-3 font-mono text-sm text-[#1e293b]'>console.log(typeof null);</pre>",
+      options: ["'null'", "'undefined'", "'object'", "'boolean'"],
+      multiSelect: false,
+      type: "mcq" as const,
+    },
+    {
+      id: "2",
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>Which of the following are valid ways to declare a variable in JavaScript?</h3><p class='text-[#64748b] mt-2'>Select all that apply.</p>",
+      options: ["var x = 1;", "let x = 1;", "const x = 1;", "variable x = 1;"],
+      multiSelect: true,
+      type: "mcq" as const,
+    },
+    {
+      id: "3",
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>What will be logged to the console?</h3><pre class='bg-[#f1f5f9] p-3 rounded-lg mt-3 font-mono text-sm text-[#1e293b]'>const arr = [1, 2, 3];\narr.push(4);\nconsole.log(arr.length);</pre>",
+      options: ["3", "4", "undefined", "Error"],
+      multiSelect: false,
+      type: "mcq" as const,
+    },
+    {
+      id: "4",
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>Which methods mutate the original array?</h3><p class='text-[#64748b] mt-2'>Select all that apply.</p>",
+      options: ["push()", "map()", "splice()", "filter()"],
+      multiSelect: true,
+      type: "mcq" as const,
+    },
+    {
+      id: "5",
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>FizzBuzz Challenge</h3><p class='text-[#64748b] mt-2'>Write a function that returns an array of numbers from 1 to n. For multiples of 3, use 'Fizz'. For multiples of 5, use 'Buzz'. For multiples of both, use 'FizzBuzz'.</p><h4 class='font-semibold mt-4 text-[#1e293b]'>Example:</h4><pre class='bg-[#f1f5f9] p-3 rounded-lg mt-2 font-mono text-sm text-[#1e293b]'>fizzBuzz(5) // [1, 2, 'Fizz', 4, 'Buzz']</pre>",
+      options: [],
+      multiSelect: false,
+      type: "coding" as const,
+    },
+    {
+      id: "6",
+      question: "<h3 class='text-lg font-semibold text-[#1e293b] mb-2'>Two Sum Problem</h3><p class='text-[#64748b] mt-2'>Given an array of integers and a target sum, return indices of the two numbers that add up to the target.</p><h4 class='font-semibold mt-4 text-[#1e293b]'>Example:</h4><pre class='bg-[#f1f5f9] p-3 rounded-lg mt-2 font-mono text-sm text-[#1e293b]'>twoSum([2, 7, 11, 15], 9) // [0, 1]</pre>",
+      options: [],
+      multiSelect: false,
+      type: "coding" as const,
+    },
+  ],
 };
 
-// Small Progress Circle Component for Mobile Header
-interface SmallProgressCircleProps {
-  current: number;
-  total: number;
-}
+const defaultCode = `function solution(input) {
+  // Write your solution here
+  
+  return result;
+}`;
 
-const SmallProgressCircle: React.FC<SmallProgressCircleProps> = ({ current, total }) => {
-  const percentage = (current / total) * 100;
-  const radius = 8;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
+/* ================= MAIN COMPONENT ================= */
 
-  return (
-    <div className="flex items-center gap-1">
-      <div className="relative w-5 h-5">
-        <svg className="transform -rotate-90 w-5 h-5">
-          {/* Background circle */}
-          <circle
-            cx="10"
-            cy="10"
-            r={radius}
-            stroke="#e5e7eb"
-            strokeWidth="2"
-            fill="none"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="10"
-            cy="10"
-            r={radius}
-            stroke="#22c55e"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-300 ease-in-out"
-          />
-        </svg>
-      </div>
-      <span className="text-xs font-medium text-gray-700">{current}/{total}</span>
-    </div>
-  );
-};
-
-// Progress Circle Component
-interface ProgressCircleProps {
-  current: number;
-  total: number;
-}
-
-const ProgressCircle: React.FC<ProgressCircleProps> = ({ current, total }) => {
-  const percentage = (current / total) * 100;
-  const radius = 35;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="relative w-24 h-24 md:w-28 md:h-28">
-        <svg className="transform -rotate-90 w-24 h-24 md:w-28 md:h-28">
-          {/* Background circle */}
-          <circle
-            cx="48"
-            cy="48"
-            r={radius}
-            stroke="#e5e7eb"
-            strokeWidth="6"
-            fill="none"
-            className="md:stroke-[8]"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="48"
-            cy="48"
-            r={radius}
-            stroke="#22c55e"
-            strokeWidth="6"
-            fill="none"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="transition-all duration-300 ease-in-out md:stroke-[8]"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center">
-            <div className="text-lg md:text-xl font-bold text-gray-900">{current}</div>
-            <div className="text-xs md:text-sm text-gray-500">/{total}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Option Button Component
-interface OptionButtonProps {
-  label: string;
-  option: string;
-  isSelected: boolean;
-  onSelect: () => void;
-}
-
-const OptionButton: React.FC<OptionButtonProps> = ({
-  label,
-  option,
-  isSelected,
-  onSelect,
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onSelect();
-        }
-      }}
-      aria-label={`Option ${label}: ${option}`}
-      className={`
-        w-full p-2.5 md:p-3 rounded-lg border-2 text-left transition-all duration-200
-        ${isSelected
-          ? "bg-green-600 border-green-600 text-white"
-          : "bg-white border-gray-300 text-gray-900 hover:border-green-400 hover:bg-green-50"
-        }
-        focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2
-      `}
-    >
-      <div className="flex items-center gap-2 md:gap-3">
-        <span
-          className={`
-            w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center font-semibold text-xs md:text-sm shrink-0
-            ${isSelected ? "bg-white text-green-600" : "bg-gray-100 text-gray-700"}
-          `}
-        >
-          {label}
-        </span>
-        <span className="flex-1 text-sm md:text-base">{option}</span>
-      </div>
-    </button>
-  );
-};
-
-// Main Quiz Component
-const Moctest: React.FC = () => {
+const MockTest: React.FC = () => {
+  const {user} = useAuth()
+  const {testId} = useParams()
+  const [mockTest,setMockTest] = useState<IMockTest|null>(null)
+  const [activeTab, setActiveTab] = useState<"mcq" | "coding">("mcq");
   const [quizState, setQuizState] = useState<QuizState>({
     currentQuestion: 0,
     selectedAnswers: {},
-    timeRemaining: INITIAL_TIME,
+    codeAnswers: {},
+    timeRemaining: 0,
+    bookmarked: new Set(),
   });
+  const [codeOutput, setCodeOutput] = useState<string>("");
 
-  const currentQuestionData = questions[quizState.currentQuestion];
-  const selectedAnswers = quizState.selectedAnswers[quizState.currentQuestion] ?? [];
-  const answeredCount = Object.keys(quizState.selectedAnswers).filter(
-    (key) => (quizState.selectedAnswers[Number(key)] ?? []).length > 0
-  ).length;
+  /* ================= TIMER ================= */
 
-  // Timer effect
   useEffect(() => {
-    if (quizState.timeRemaining <= 0) {
-      return;
-    }
+    if (quizState.timeRemaining <= 0) return;
 
-    const interval = setInterval(() => {
+    const timer = setInterval(() => {
       setQuizState((prev) => ({
         ...prev,
-        timeRemaining: Math.max(0, prev.timeRemaining - 1),
+        timeRemaining: prev.timeRemaining - 1,
       }));
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(timer);
   }, [quizState.timeRemaining]);
 
-  const handleOptionSelect = useCallback((optionIndex: number) => {
-    setQuizState((prev) => {
-      const currentSelections = prev.selectedAnswers[prev.currentQuestion] ?? [];
-      const isSelected = currentSelections.includes(optionIndex);
-      
-      return {
-        ...prev,
-        selectedAnswers: {
-          ...prev.selectedAnswers,
-          [prev.currentQuestion]: isSelected
-            ? currentSelections.filter((idx) => idx !== optionIndex)
-            : [...currentSelections, optionIndex],
-        },
-      };
-    });
-  }, []);
+  /* ================= HELPERS ================= */
 
-  const handlePrevious = useCallback(() => {
-    setQuizState((prev) => ({
-      ...prev,
-      currentQuestion: Math.max(0, prev.currentQuestion - 1),
-    }));
-  }, []);
+  const filteredQuestions = mockTest?.questions.filter((q) => q.type === activeTab) || [];
+  const currentQuestion = filteredQuestions[quizState.currentQuestion];
 
-  const handleNext = useCallback(() => {
-    setQuizState((prev) => ({
-      ...prev,
-      currentQuestion: Math.min(TOTAL_QUESTIONS - 1, prev.currentQuestion + 1),
-    }));
-  }, []);
+  const hours = Math.floor(quizState.timeRemaining / 3600);
+  const minutes = Math.floor((quizState.timeRemaining % 3600) / 60);
+  const seconds = quizState.timeRemaining % 60;
 
-  const handleQuestionJump = useCallback((questionIndex: number) => {
-    setQuizState((prev) => ({
-      ...prev,
-      currentQuestion: questionIndex,
-    }));
-  }, []);
-
-  const handleSubmit = useCallback(() => {
-    // Handle quiz submission
-    const confirmed = window.confirm(
-      `Are you sure you want to submit? You have answered ${answeredCount} out of ${TOTAL_QUESTIONS} questions.
-      `
-    );
-    if (confirmed) {
-      // Submit logic here
-      console.log("Quiz submitted", quizState.selectedAnswers);
-      alert("Quiz submitted successfully! ALL THE BEST FROM SKILLS & BRAINS!");
+  const isAnswered = (idx: number) => {
+    if (activeTab === "mcq") {
+      return (quizState.selectedAnswers[idx]?.length || 0) > 0;
     }
-  }, [answeredCount, quizState.selectedAnswers]);
+    return (quizState.codeAnswers[idx]?.length || 0) > 0 && 
+           quizState.codeAnswers[idx] !== defaultCode;
+  };
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft" && quizState.currentQuestion > 0) {
-        handlePrevious();
-      } else if (e.key === "ArrowRight" && quizState.currentQuestion < TOTAL_QUESTIONS - 1) {
-        handleNext();
-      } else if (e.key >= "1" && e.key <= "4") {
-        const optionIndex = parseInt(e.key) - 1;
-        if (optionIndex < currentQuestionData.options.length) {
-          handleOptionSelect(optionIndex);
-        }
+  const totalAnswered = mockTestData.questions.filter((_, idx) => {
+    const q = mockTestData.questions[idx];
+    if (q.type === "mcq") {
+      const mcqIdx = mockTestData.questions.filter(qq => qq.type === "mcq").indexOf(q);
+      return (quizState.selectedAnswers[mcqIdx]?.length || 0) > 0;
+    } else {
+      const codingIdx = mockTestData.questions.filter(qq => qq.type === "coding").indexOf(q);
+      return (quizState.codeAnswers[codingIdx]?.length || 0) > 0 && 
+             quizState.codeAnswers[codingIdx] !== defaultCode;
+    }
+  }).length;
+
+  const toggleBookmark = () => {
+    setQuizState((prev) => {
+      const newBookmarked = new Set(prev.bookmarked);
+      const key = activeTab === "mcq" ? quizState.currentQuestion : quizState.currentQuestion + 100;
+      if (newBookmarked.has(key)) {
+        newBookmarked.delete(key);
+      } else {
+        newBookmarked.add(key);
       }
-    };
+      return { ...prev, bookmarked: newBookmarked };
+    });
+  };
 
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [quizState.currentQuestion, handlePrevious, handleNext, handleOptionSelect, currentQuestionData]);
+  const isBookmarked = quizState.bookmarked.has(
+    activeTab === "mcq" ? quizState.currentQuestion : quizState.currentQuestion + 100
+  );
+
+  const getTimeColor = () => {
+    if (quizState.timeRemaining < 300) return "text-[#ef4444]";
+    if (quizState.timeRemaining < 600) return "text-[#f59e0b]";
+    return "text-[#1e293b]";
+  };
+
+  /* ================= RENDER ================= */
+  const fetchMocktest = async () => {
+  try {
+    const res = await MockTestApis.getMockTest(testId!);
+    const mock = res.data; // It's a single mock test object
+    const formattedQuestions = mock.questions.map((ques: any) => ({
+      id: ques.question._id,
+      question: ques.question.title,
+      options: ques.question.options.map((op: any) => op.text),
+      multiSelect: ques.question.multiSelect,
+      type: ques.question.type,
+      marks: ques.marks
+    }));
+
+    const formattedMock = {
+      ...mock,
+      questions: formattedQuestions
+    };
+    setQuizState({...quizState,timeRemaining:(res?.data?.duration || 0) * 60})
+    setMockTest(formattedMock);
+  } catch (error) {
+    console.log(error);
+  }
+};
+
+  useEffect(()=>{
+    if(testId){
+      fetchMocktest()
+    }
+  },[testId])
+
+  const runUserCode = () => {
+    let output = "";
+
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    try {
+      console.log = (...args) => {
+        output += args.map(String).join(" ") + "\n";
+      };
+      console.error = (...args) => {
+        output += "❌ " + args.map(String).join(" ") + "\n";
+      };
+      console.warn = (...args) => {
+        output += "⚠️ " + args.map(String).join(" ") + "\n";
+      };
+
+      const userCode = quizState.codeAnswers[quizState.currentQuestion] || "";
+
+      // Run raw JS code
+      const fn = new Function(userCode);
+      const result = fn();
+
+      // If user returned something explicitly
+      if (result !== undefined) {
+        output += "↩ Returned: " + JSON.stringify(result) + "\n";
+      }
+
+      setCodeOutput(output || "✅ Code executed successfully (no output)");
+    } catch (err: any) {
+      setCodeOutput("❌ Runtime Error:\n" + err.message);
+    } finally {
+      console.log = originalLog;
+      console.error = originalError;
+      console.warn = originalWarn;
+    }
+  };
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-white via-green-50 to-green-200 p-2 md:p-4 lg:p-6">
-      <div className="h-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-2 md:gap-4">
-        {/* Main Quiz Card */}
-        <div className="flex-1 bg-white rounded-xl md:rounded-2xl shadow-lg overflow-hidden flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6">
-            {/* Header Section */}
-            <div className="flex items-center justify-between mb-3 md:mb-4 pb-2 md:pb-3 border-b border-gray-200">
-              <div className="flex items-center gap-2">
-                <div className="text-lg md:text-xl lg:text-2xl font-bold text-gray-900">Skills & Brains</div>
-                {/* Small Progress Indicator for Mobile */}
-                <div className="lg:hidden">
-                  <SmallProgressCircle current={answeredCount} total={TOTAL_QUESTIONS} />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 md:gap-3">
-                <Avatar
-                  name="John Doe"
-                  email="john.doe@example.com"
-                  size="sm"
-                  collapsed={true}
-                />
-                <div className="hidden sm:flex flex-col">
-                  <span className="text-xs md:text-sm font-semibold text-gray-900">John Doe</span>
-                  <span className="text-xs text-gray-500">ID: 12345</span>
-                </div>
-              </div>
+    <div className="min-h-screen p-4 lg:p-6 bg-[#f8fafc] font-['DM_Sans']">
+      {/* HEADER */}
+      <header className="bg-[#ffffff] rounded-xl border border-[#e2e8f0] shadow-[0_10px_15px_-3px_rgba(15,23,42,0.08),0_4px_6px_-4px_rgba(15,23,42,0.04)] p-4 lg:p-6 mb-4 lg:mb-6">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+          {/* Left: Test Info */}
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-[#3b82f6]/10">
+              <AcademicCapIcon className="w-6 h-6 text-[#3b82f6]" />
+            </div>
+            <div>
+              <h1 className="text-xl lg:text-2xl font-bold tracking-tight text-[#1e293b]">
+                {mockTest?.title}
+              </h1>
+              <p className="text-sm mt-1 max-w-xl text-[#64748b]">
+                {mockTest?.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Timer & User */}
+          <div className="flex items-center gap-4 lg:gap-6">
+            {/* Timer */}
+            <div className="bg-[#ffffff] rounded-lg border border-[#e2e8f0] shadow-[0_1px_2px_0_rgba(15,23,42,0.05)] px-4 py-2.5 flex items-center gap-3">
+              <ClockIcon className={`w-5 h-5 ${getTimeColor()} ${quizState.timeRemaining < 300 ? 'animate-pulse' : ''}`} />
+              <span className={`font-['JetBrains_Mono'] font-semibold text-lg ${getTimeColor()}`}>
+                {hours > 0 && `${hours.toString().padStart(2, "0")}:`}
+                {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+              </span>
             </div>
 
-            {/* Timer & Submit Section */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-3 md:mb-4">
-              <Timer timeRemaining={quizState.timeRemaining} />
-              <button
-                type="button"
-                onClick={handleSubmit}
-                className="w-full sm:w-auto px-4 md:px-6 py-1.5 md:py-2.5 bg-green-600 text-white text-sm md:text-base font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors"
-                aria-label="Submit quiz"
-              >
-                Submit
-              </button>
+            {/* Progress */}
+            <div className="hidden sm:flex items-center gap-2 text-sm text-[#64748b]">
+              <CheckCircleIcon className="w-5 h-5 text-[#16a34a]" />
+              <span>
+                <span className="font-semibold text-[#1e293b]">{totalAnswered}</span>
+                /{mockTest?.questions.length} answered
+              </span>
             </div>
 
-            {/* Question Section */}
-            <div className="mb-4 md:mb-6">
-              <div className="text-xs md:text-sm font-medium text-gray-600 mb-2 md:mb-3">
-                Question {quizState.currentQuestion + 1} of {TOTAL_QUESTIONS}
+            {/* User Avatar */}
+            {/* <div className="flex items-center gap-3 pl-4 border-l border-[#e2e8f0]">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#334155]">
+                <UserCircleIcon className="w-6 h-6 text-[#f8fafc]" />
               </div>
-              <h2 className="text-base md:text-lg lg:text-xl font-semibold text-gray-900 mb-3 md:mb-4">
-                {currentQuestionData.question}
-              </h2>
-
-              {/* Options */}
-              <div className="space-y-2 md:space-y-3">
-                {currentQuestionData.options.map((option, index) => (
-                  <OptionButton
-                    key={index}
-                    label={String.fromCharCode(65 + index)}
-                    option={option}
-                    isSelected={selectedAnswers.includes(index)}
-                    onSelect={() => handleOptionSelect(index)}
-                  />
-                ))}
+              <div className="hidden md:block">
+                <p className="text-sm font-medium text-[#1e293b]">Jo</p>
+                <p className="text-xs text-[#64748b]">Candidate</p>
               </div>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex flex-col gap-2 md:gap-3">
-              {/* Question Number Buttons
-              <div className="flex flex-wrap gap-1.5 md:gap-2 justify-center">
-                {questions.map((question, index) => {
-                  const isAnswered = (quizState.selectedAnswers[index] ?? []).length > 0;
-                  const isCurrent = quizState.currentQuestion === index;
-                  return (
-                    <button
-                      key={question.id}
-                      type="button"
-                      onClick={() => handleQuestionJump(index)}
-                      aria-label={`Go to question ${index + 1}`}
-                      className={`
-                        w-8 h-8 md:w-10 md:h-10 rounded-lg font-medium text-xs md:text-sm transition-all
-                        ${isCurrent
-                          ? "bg-green-600 text-white ring-2 ring-green-500 ring-offset-1 md:ring-offset-2"
-                          : isAnswered
-                          ? "bg-green-100 text-green-700 border-2 border-green-300"
-                          : "bg-gray-100 text-gray-700 border-2 border-gray-300 hover:bg-gray-200"
-                        }
-                        focus:outline-none focus:ring-2 focus:ring-green-500
-                      `}
-                    >
-                      {index + 1}
-                    </button>
-                  );
-                })}
-              </div> */}
-
-              {/* Navigation Buttons */}
-              <div className="flex items-center justify-between gap-2 md:gap-4">
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  disabled={quizState.currentQuestion === 0}
-                  className={`
-                    px-4 md:px-6 py-1.5 md:py-2.5 rounded-lg text-sm md:text-base font-medium transition-colors
-                    ${quizState.currentQuestion === 0
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
-                  `}
-                  aria-label="Previous question"
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={quizState.currentQuestion === TOTAL_QUESTIONS - 1}
-                  className={`
-                    px-4 md:px-6 py-1.5 md:py-2.5 rounded-lg text-sm md:text-base font-medium transition-colors
-                    ${quizState.currentQuestion === TOTAL_QUESTIONS - 1
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2
-                  `}
-                  aria-label="Next question"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            </div> */}
+            {user && <Avatar name={user?.name!} email={user?.email!}/>}
           </div>
         </div>
 
-        {/* Progress Circle Panel - Desktop Right Side Only */}
-        <div className="hidden lg:block lg:w-56 xl:w-64 shrink-0">
-          <div className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 flex flex-col items-center h-full lg:h-auto">
-            <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-3 md:mb-4">Progress</h3>
-            <ProgressCircle current={answeredCount} total={TOTAL_QUESTIONS} />
-            <div className="mt-3 md:mt-4 text-xs md:text-sm text-gray-600 text-center">
-              {answeredCount} of {TOTAL_QUESTIONS} questions answered
+        {/* TABS */}
+        <div className="flex gap-3 mt-6 pt-4 border-t border-[#e2e8f0]">
+          <button
+            onClick={() => {
+              setActiveTab("mcq");
+              setQuizState((p) => ({ ...p, currentQuestion: 0 }));
+            }}
+            className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
+              activeTab === "mcq"
+                ? "bg-[#3b82f6] text-[#ffffff] shadow-[0_2px_8px_0_rgba(59,130,246,0.25)]"
+                : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#1e293b]"
+            }`}
+          >
+            <ListBulletIcon className="w-5 h-5" />
+            <span>Multiple Choice</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-[#ffffff]/50">
+              {mockTest?.questions.filter((q) => q.type === "mcq").length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("coding");
+              setQuizState((p) => ({ ...p, currentQuestion: 0 }));
+            }}
+            className={`px-5 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex items-center gap-2 ${
+              activeTab === "coding"
+                ? "bg-[#3b82f6] text-[#ffffff] shadow-[0_2px_8px_0_rgba(59,130,246,0.25)]"
+                : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0] hover:text-[#1e293b]"
+            }`}
+          >
+            <CodeBracketIcon className="w-5 h-5" />
+            <span>Coding</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-xs bg-[#ffffff]/50">
+              {mockTest?.questions.filter((q) => q.type === "coding").length}
+            </span>
+          </button>
+        </div>
+      </header>
+
+      {/* MAIN BODY */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+        {/* QUESTION PANEL */}
+        <div className="lg:col-span-4 xl:col-span-3 bg-[#ffffff] rounded-xl border border-[#e2e8f0] shadow-[0_10px_15px_-3px_rgba(15,23,42,0.08),0_4px_6px_-4px_rgba(15,23,42,0.04)] p-5 h-fit lg:sticky lg:top-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold flex items-center gap-2 text-[#1e293b]">
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-bold bg-[#3b82f6]/10 text-[#3b82f6]">
+                {quizState.currentQuestion + 1}
+              </span>
+              Question {quizState.currentQuestion + 1}
+            </h2>
+            <button
+              onClick={toggleBookmark}
+              className="p-2 rounded-lg transition-colors hover:bg-[#f1f5f9]"
+              title={isBookmarked ? "Remove bookmark" : "Bookmark question"}
+            >
+              {isBookmarked ? (
+                <BookmarkSolidIcon className="w-5 h-5 text-[#f59e0b]" />
+              ) : (
+                <BookmarkIcon className="w-5 h-5 text-[#64748b]" />
+              )}
+            </button>
+          </div>
+
+          {currentQuestion ? (
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: currentQuestion.question }}
+            />
+          ) : (
+            <p className="text-[#64748b]">No question available</p>
+          )}
+
+          {currentQuestion?.multiSelect && (
+            <div className="mt-4 flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-[#3b82f6]/10 text-[#3b82f6]">
+              <CheckCircleIcon className="w-4 h-4" />
+              Multiple answers allowed
+            </div>
+          )}
+        </div>
+
+        {/* ANSWER PANEL */}
+        <div className="lg:col-span-6 xl:col-span-7 bg-[#ffffff] rounded-xl border border-[#e2e8f0] shadow-[0_10px_15px_-3px_rgba(15,23,42,0.08),0_4px_6px_-4px_rgba(15,23,42,0.04)] p-5 min-h-[60vh]">
+          {currentQuestion ? (
+            <>
+              {currentQuestion.type === "mcq" && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium mb-4 text-[#64748b]">
+                    Select {currentQuestion.multiSelect ? "all that apply" : "one answer"}:
+                  </h3>
+                  {currentQuestion.options.map((opt, idx) => {
+                    const selected = quizState.selectedAnswers[quizState.currentQuestion]?.includes(idx);
+
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setQuizState((prev) => ({
+                            ...prev,
+                            selectedAnswers: {
+                              ...prev.selectedAnswers,
+                              [prev.currentQuestion]: currentQuestion.multiSelect
+                                ? selected
+                                  ? prev.selectedAnswers[prev.currentQuestion].filter((i) => i !== idx)
+                                  : [...(prev.selectedAnswers[prev.currentQuestion] || []), idx]
+                                : [idx],
+                            },
+                          }));
+                        }}
+                        className={`w-full text-left p-4 rounded-lg border-2 transition-all duration-200 flex items-start gap-3 ${
+                          selected
+                            ? "border-[#3b82f6] bg-[#3b82f6]/10"
+                            : "border-[#e2e8f0] bg-[#ffffff] hover:border-[#3b82f6]/50 hover:bg-[#3b82f6]/5"
+                        }`}
+                      >
+                        <span
+                          className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
+                            selected
+                              ? "border-[#3b82f6] bg-[#3b82f6]"
+                              : "border-[#64748b]/30 bg-transparent"
+                          }`}
+                        >
+                          {selected && <CheckCircleSolidIcon className="w-4 h-4 text-[#ffffff]" />}
+                        </span>
+                        <span className="flex-1 text-[#1e293b]">{opt}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {currentQuestion.type === "coding" && (
+                <div className=" flex flex-col">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-sm font-medium text-[#64748b]">
+                      Write your solution in JavaScript:
+                    </h3>
+                    <button
+                      onClick={() => {
+                        setQuizState((prev) => ({
+                          ...prev,
+                          codeAnswers: {
+                            ...prev.codeAnswers,
+                            [prev.currentQuestion]: defaultCode,
+                          },
+                        }));
+                      }}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-transparent text-[#1e293b] hover:bg-[#f1f5f9] transition-all duration-200"
+                    >
+                      <ArrowPathIcon className="w-4 h-4" />
+                      Reset Code
+                    </button>
+                    <button
+                      onClick={runUserCode}
+                      className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white font-medium hover:opacity-90"
+                    >
+                      ▶ Run Code
+                    </button>
+
+                  </div>
+                  <div className="rounded-lg min-h-[400px] border border-[#e2e8f0]">
+                    <Editor
+                      height="600px"
+                      defaultLanguage="javascript"
+                      value={quizState.codeAnswers[quizState.currentQuestion] || defaultCode}
+                      theme="vs-dark"
+                      onChange={(value) =>
+                        setQuizState((prev) => ({
+                          ...prev,
+                          codeAnswers: {
+                            ...prev.codeAnswers,
+                            [prev.currentQuestion]: value || "",
+                          },
+                        }))
+                      }
+                      options={{
+                        fontSize: 14,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        minimap: { enabled: false },
+                        padding: { top:16 ,bottom:16},
+                        lineNumbers: "on",
+                        scrollBeyondLastLine: false,
+                        automaticLayout: true,
+                      }}
+                    />
+                  </div>
+                  {codeOutput && (
+                    <div className="mt-4 bg-black text-green-400 p-4 rounded-lg font-mono text-sm whitespace-pre-wrap">
+                      {codeOutput}
+                    </div>
+                  )}
+
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="h-full flex items-center justify-center text-[#64748b]">
+              <p>No question available</p>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#e2e8f0]">
+            <button
+              onClick={() =>
+                setQuizState((p) => ({
+                  ...p,
+                  currentQuestion: Math.max(0, p.currentQuestion - 1),
+                }))
+              }
+              disabled={quizState.currentQuestion === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-transparent text-[#1e293b] hover:bg-[#f1f5f9] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+              Previous
+            </button>
+
+            <span className="text-sm text-[#64748b]">
+              {quizState.currentQuestion + 1} of {filteredQuestions.length}
+            </span>
+
+            <button
+              onClick={() =>
+                setQuizState((p) => ({
+                  ...p,
+                  currentQuestion: Math.min(filteredQuestions.length - 1, p.currentQuestion + 1),
+                }))
+              }
+              disabled={quizState.currentQuestion === filteredQuestions.length - 1}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm bg-gradient-to-r from-[#3b82f6] to-[#6366f1] text-[#ffffff] hover:opacity-90 hover:scale-[1.02] shadow-[0_4px_14px_0_rgba(59,130,246,0.35)] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              Next
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* QUESTION NAVIGATOR */}
+        <div className="lg:col-span-2 bg-[#ffffff] rounded-xl border border-[#e2e8f0] shadow-[0_10px_15px_-3px_rgba(15,23,42,0.08),0_4px_6px_-4px_rgba(15,23,42,0.04)] p-5 h-fit lg:sticky lg:top-6">
+          <h2 className="font-semibold mb-4 text-[#1e293b]">Navigator</h2>
+          <div className="grid grid-cols-5 lg:grid-cols-3 xl:grid-cols-4 gap-2">
+            {filteredQuestions.map((_, idx) => {
+              const answered = isAnswered(idx);
+              const isCurrent = quizState.currentQuestion === idx;
+              const bookmarkKey = activeTab === "mcq" ? idx : idx + 100;
+              const isMarked = quizState.bookmarked.has(bookmarkKey);
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => setQuizState((p) => ({ ...p, currentQuestion: idx }))}
+                  className={`w-10 h-10 rounded-lg font-medium text-sm transition-all duration-200 flex items-center justify-center relative ${
+                    isCurrent
+                      ? "bg-[#3b82f6] text-[#ffffff] shadow-[0_2px_8px_0_rgba(59,130,246,0.3)]"
+                      : answered
+                      ? "bg-[#16a34a]/15 text-[#16a34a] border border-[#16a34a]/30"
+                      : "bg-[#f1f5f9] text-[#64748b] hover:bg-[#e2e8f0]"
+                  }`}
+                >
+                  {idx + 1}
+                  {isMarked && (
+                    <BookmarkSolidIcon className="w-3 h-3 absolute -top-1 -right-1 text-[#f59e0b]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-6 pt-4 space-y-2 text-xs border-t border-[#e2e8f0]">
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-[#3b82f6]" />
+              <span className="text-[#64748b]">Current</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-[#16a34a]/15 border border-[#16a34a]/30" />
+              <span className="text-[#64748b]">Answered</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-4 h-4 rounded bg-[#f1f5f9]" />
+              <span className="text-[#64748b]">Not answered</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <BookmarkSolidIcon className="w-4 h-4 text-[#f59e0b]" />
+              <span className="text-[#64748b]">Bookmarked</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ACTIONS FOOTER */}
+      <footer className="bg-[#ffffff] rounded-xl border border-[#e2e8f0] shadow-[0_10px_15px_-3px_rgba(15,23,42,0.08),0_4px_6px_-4px_rgba(15,23,42,0.04)] p-4 mt-4 lg:mt-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-sm text-[#64748b]">
+            Make sure to review all questions before submitting.
+          </p>
+          <div className="flex gap-3">
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm bg-gradient-to-r from-[#16a34a] to-[#22c55e] text-[#ffffff] hover:opacity-90 hover:scale-[1.02] shadow-[0_4px_14px_0_rgba(22,163,74,0.35)] transition-all duration-200">
+              <DocumentCheckIcon className="w-5 h-5" />
+              Save Progress
+            </button>
+            <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg font-medium text-sm bg-[#ef4444] text-[#ffffff] hover:opacity-90 hover:scale-[1.02] shadow-[0_4px_14px_0_rgba(239,68,68,0.35)] transition-all duration-200">
+              Submit Test
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
 
-export default Moctest;
+export default MockTest;
