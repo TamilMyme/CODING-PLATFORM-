@@ -1,4 +1,6 @@
 
+export type UserRole = "STUDENT" | "ADMIN" | "SUPER_ADMIN";
+
 export type ColumnType =
   | "string"
   | "number"
@@ -78,4 +80,31 @@ export interface IMockTest {
 
   createdAt: string;
   updatedAt: string;
+}
+
+// Course and Batch interfaces
+export interface ICourse {
+  _id: string;
+  title: string;
+  description?: string;
+  roadmap: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IBatch {
+  _id: string;
+  name: string;
+  course: ICourse | string;
+  students: any[]; // User objects or IDs
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IUser {
+  _id: string;
+  name: string;
+  email: string;
+  role: UserRole;
 }

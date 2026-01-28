@@ -4,15 +4,15 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/overview";
 import LoginPage from "./pages/LoginPage";
 import Student from "./pages/Student";
-import College from "./pages/College";
+import Institutions from "./pages/Institutions";
 import Question from "./pages/Question";
 import MockTest from "./pages/MockTest";
 import AuthProvider from "./context/AuthProvider";
 // import Dashui from "./components/Dashui";
 import Moctest from "./components/Moctest";
 import Users from "./pages/Users";
-import StudentLogin from "./pages/StudentLogin";
 import Course from "./pages/Course";
+import Batch from "./pages/Batch";
 import ProtectedRoute from "./components/ProtectedRoute";
 import MockTestList from "./pages/Assigments";
 import './App.css'
@@ -27,7 +27,7 @@ const App: React.FC = () => {
           <Route
             path="/"
             element={
-              <ProtectedRoute allowedRoles={["super-admin", "student"]} />
+              <ProtectedRoute allowedRoles={["SUPER_ADMIN", "STUDENT"]} />
             }
           >
             <Route
@@ -48,6 +48,14 @@ const App: React.FC = () => {
               }
             />
             <Route
+              path="/batches"
+              element={
+                <Layout>
+                  <Batch />
+                </Layout>
+              }
+            />
+            <Route
               path="/mock-tests"
               element={
                 <Layout>
@@ -58,21 +66,13 @@ const App: React.FC = () => {
           </Route>
           <Route
             path="/"
-            element={<ProtectedRoute allowedRoles={["super-admin"]} />}
+            element={<ProtectedRoute allowedRoles={["SUPER_ADMIN"]} />}
           >
             <Route
-              path="/"
+              path="/institutions"
               element={
                 <Layout>
-                  <Dashboard />
-                </Layout>
-              }
-            />
-            <Route
-              path="/colleges"
-              element={
-                <Layout>
-                  <College />
+                  <Institutions />
                 </Layout>
               }
             />
@@ -112,8 +112,7 @@ const App: React.FC = () => {
           />
 
           <Route path="/assign" element={<Moctest />} />
-          <Route path="/admin/login" element={<LoginPage />} />
-          <Route path="/login" element={<StudentLogin />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/skill-brains/:testId" element={<Moctest/>}/>
         </Routes>
       </BrowserRouter>

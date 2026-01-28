@@ -6,14 +6,29 @@ import React, {
   useState,
 } from "react";
 import UserApis from "../apis/UserApis";
-// import { useNavigate } from "react-router-dom";
-import StudentApis from "../apis/StudentApis";
+import type { UserRole } from "../types/interfaces";
 
 interface User {
   _id: string;
-  role: string;
+  role: UserRole;
   email: string;
-  name: string;
+  name?: string;
+  phone?: string;
+  organisation?: {
+    _id: string;
+    name: string;
+  };
+  batch?: {
+    _id: string;
+    name: string;
+  };
+  enrolledCourses?: string[];
+  points: number;
+  streak: number;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AuthContextType {
@@ -37,21 +52,17 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   useEffect(() => {
     const fetchAuthUser = async () => {
+      setIsLoading(true);
       try {
-        // Try employee/user first
+        // Get user by token
         const res = await UserApis.getUserByToken();
         setUser(res.data);
         setLogin(true);
-      } catch (err) {
-        try {
-          // Fallback to student
-          const res = await StudentApis.getStudentByToken();
-          setUser(res.data);
-          setLogin(true);
-        } catch (error) {
-          setUser(null);
-          setLogin(false);
-        }
+      } catch (error) {
+        setUser(null);
+        setLogin(false);
+      } finally {
+        setIsLoading(false);
       }
     };
 

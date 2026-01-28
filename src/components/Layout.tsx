@@ -11,7 +11,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // const pathSegments = location.pathname.split("/").filter(Boolean); // remove empty segments
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-gray-50">
+    <div className="flex h-screen w-full overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100">
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
 
       <div className="flex-1 flex flex-col overflow-hidden">

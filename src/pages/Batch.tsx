@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
-  BookOpenIcon,
-  ClockIcon,
-  ChartBarIcon,
+  UserGroupIcon,
+  AcademicCapIcon,
   TrashIcon,
   EyeIcon,
   PencilSquareIcon,
@@ -13,192 +12,186 @@ import {
   PlusIcon,
   CheckIcon,
 } from "@heroicons/react/24/outline";
+import BatchApis from "../apis/BatchApis";
 import CourseApis from "../apis/CourseApis";
-import type { ICourse } from "../types/interfaces";
+import UserApis from "../apis/UserApis";
+import type { IBatch, ICourse, IUser } from "../types/interfaces";
 import { MdClose } from "react-icons/md";
 
-interface CourseRow extends ICourse {
+interface BatchRow extends IBatch {
   selected?: boolean;
 }
 
-const Course: React.FC = () => {
-  const [courses, setCourses] = useState<CourseRow[]>([]);
-  const [filteredCourses, setFilteredCourses] = useState<CourseRow[]>([]);
+const Batch: React.FC = () => {
+  const [batches, setBatches] = useState<BatchRow[]>([]);
+  const [filteredBatches, setFilteredBatches] = useState<BatchRow[]>([]);
+  const [courses, setCourses] = useState<ICourse[]>([]);
+  const [students, setStudents] = useState<IUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingCourse, setEditingCourse] = useState<ICourse | null>(null);
+  const [editingBatch, setEditingBatch] = useState<IBatch | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState<{
-    title: string;
-    description: string;
-    roadmap: string[];
-    roadmapInput: string;
-    isActive: boolean;
-  }>({
-    title: "",
-    description: "",
-    roadmap: [] as string[],
-    roadmapInput: "",
-    isActive: true,
+  const [formData, setFormData] = useState({
+    name: "",
+    course: "",
+    students: [] as string[],
   });
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterCourse, setFilterCourse] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [sortBy, setSortBy] = useState("title");
+  const [sortBy, setSortBy] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
+    fetchBatches();
     fetchCourses();
+    fetchStudents();
   }, []);
 
   useEffect(() => {
-    let filtered = [...courses];
+    let filtered = [...batches];
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(course =>
-        course.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(batch =>
+        batch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getCourseTitle(batch.course).toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Apply status filter
-    if (filterStatus) {
-      filtered = filtered.filter(course => {
-        if (filterStatus === "active") return course.isActive;
-        if (filterStatus === "inactive") return !course.isActive;
-        return true;
+    // Apply course filter
+    if (filterCourse) {
+      filtered = filtered.filter(batch => {
+        const courseId = typeof batch.course === 'string' ? batch.course : batch.course._id;
+        return courseId === filterCourse;
       });
     }
 
     // Apply sorting
     filtered.sort((a, b) => {
-      const aValue = a[sortBy as keyof CourseRow] || "";
-      const bValue = b[sortBy as keyof CourseRow] || "";
+      const aValue = a[sortBy as keyof BatchRow] || "";
+      const bValue = b[sortBy as keyof BatchRow] || "";
       
       if (aValue < bValue) return sortOrder === "asc" ? -1 : 1;
       if (aValue > bValue) return sortOrder === "asc" ? 1 : -1;
       return 0;
     });
 
-    setFilteredCourses(filtered);
-  }, [searchTerm, filterStatus, sortBy, sortOrder, courses]);
+    setFilteredBatches(filtered);
+  }, [searchTerm, filterCourse, sortBy, sortOrder, batches]);
 
-  const fetchCourses = async () => {
+  const fetchBatches = async () => {
     try {
       setLoading(true);
-      const data = await CourseApis.getAll();
-      const courseRows = data.map(course => ({ ...course, selected: false }));
-      setCourses(courseRows);
-      setFilteredCourses(courseRows);
+      const data = await BatchApis.getAll();
+      const batchRows = data.map(batch => ({ ...batch, selected: false }));
+      setBatches(batchRows);
+      setFilteredBatches(batchRows);
     } catch (error) {
-      console.error("Error fetching courses:", error);
+      console.error("Error fetching batches:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateCourse = async () => {
+  const fetchCourses = async () => {
+    try {
+      const data = await CourseApis.getAll();
+      setCourses(data);
+    } catch (error) {
+      console.error("Error fetching courses:", error);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const data = await UserApis.getAllUsersByRole("STUDENT");
+      setStudents(data.data || []);
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
+  };
+
+  const handleCreateBatch = async () => {
     setIsSubmitting(true);
     try {
-      await CourseApis.create({
-        ...formData,
-        roadmap: formData.roadmap.filter(item => item.trim() !== ""),
-      });
-      setFormData({ title: "", description: "", roadmap: [], roadmapInput: "", isActive: true });
+      await BatchApis.create(formData);
+      setFormData({ name: "", course: "", students: [] });
       setShowCreateForm(false);
-      fetchCourses();
+      fetchBatches();
     } catch (error) {
-      console.error("Error creating course:", error);
+      console.error("Error creating batch:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleUpdateCourse = async () => {
-    if (!editingCourse) return;
+  const handleUpdateBatch = async () => {
+    if (!editingBatch) return;
     
     setIsSubmitting(true);
     try {
-      await CourseApis.update(editingCourse._id, {
-        ...formData,
-        roadmap: formData.roadmap.filter(item => item.trim() !== ""),
-      });
-      setFormData({ title: "", description: "", roadmap: [], roadmapInput: "", isActive: true });
-      setEditingCourse(null);
+      await BatchApis.update(editingBatch._id, formData);
+      setFormData({ name: "", course: "", students: [] });
+      setEditingBatch(null);
       setShowCreateForm(false);
-      fetchCourses();
+      fetchBatches();
     } catch (error) {
-      console.error("Error updating course:", error);
+      console.error("Error updating batch:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteCourse = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this course? This action cannot be undone.")) return;
+  const handleDeleteBatch = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this batch? This action cannot be undone.")) return;
     
     try {
-      await CourseApis.delete(id);
-      fetchCourses();
+      await BatchApis.delete(id);
+      fetchBatches();
     } catch (error) {
-      console.error("Error deleting course:", error);
+      console.error("Error deleting batch:", error);
     }
   };
 
-  const handleView = async (course: ICourse) => {
-    const roadmapText = course.roadmap && course.roadmap.length > 0 
-      ? course.roadmap.map((item, index) => `${index + 1}. ${item}`).join('\n')
-      : 'No roadmap items';
-      
-    alert(`Course Details:\n\nTitle: ${course.title}\nDescription: ${course.description || 'No description'}\nStatus: ${course.isActive ? 'Active' : 'Inactive'}\nRoadmap Items: ${course.roadmap?.length || 0}\n\nRoadmap:\n${roadmapText}\n\nCreated: ${new Date(course.createdAt).toLocaleDateString()}\nUpdated: ${new Date(course.updatedAt).toLocaleDateString()}`);
+  const handleView = async (batch: IBatch) => {
+    alert(`Batch Details:\n\nName: ${batch.name}\nCourse: ${getCourseTitle(batch.course)}\nStudents: ${batch.students?.length || 0}\nCreated: ${new Date(batch.createdAt).toLocaleDateString()}\nUpdated: ${new Date(batch.updatedAt).toLocaleDateString()}`);
   };
 
-  const openEditForm = (course: ICourse) => {
-    setEditingCourse(course);
+  const openEditForm = (batch: IBatch) => {
+    setEditingBatch(batch);
     setFormData({
-      title: course.title,
-      description: course.description || "",
-      roadmap: course.roadmap || [],
-      roadmapInput: "",
-      isActive: course.isActive,
+      name: batch.name,
+      course: typeof batch.course === 'string' ? batch.course : batch.course._id,
+      students: batch.students?.map(s => typeof s === 'string' ? s : s._id) || [],
     });
     setShowCreateForm(true);
   };
 
   const cancelForm = () => {
-    setFormData({ title: "", description: "", roadmap: [], roadmapInput: "", isActive: true });
+    setFormData({ name: "", course: "", students: [] });
     setShowCreateForm(false);
-    setEditingCourse(null);
-  };
-
-  const addRoadmapItem = () => {
-    if (formData.roadmapInput.trim()) {
-      setFormData({
-        ...formData,
-        roadmap: [...formData.roadmap, formData.roadmapInput.trim()],
-        roadmapInput: "",
-      });
-    }
-  };
-
-  const removeRoadmapItem = (index: number) => {
-    setFormData({
-      ...formData,
-      roadmap: formData.roadmap.filter((_, i) => i !== index),
-    });
+    setEditingBatch(null);
   };
 
   const clearFilters = () => {
     setSearchTerm("");
-    setFilterStatus("");
+    setFilterCourse("");
     setShowFilters(false);
   };
 
-  const totalPages = Math.ceil(filteredCourses.length / itemsPerPage);
-  const paginatedCourses = filteredCourses.slice(
+  const getCourseTitle = (course: ICourse | string) => {
+    if (typeof course === 'string') {
+      const foundCourse = courses.find(c => c._id === course);
+      return foundCourse?.title || course;
+    }
+    return course.title;
+  };
+
+  const totalPages = Math.ceil(filteredBatches.length / itemsPerPage);
+  const paginatedBatches = filteredBatches.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
@@ -211,10 +204,10 @@ const Course: React.FC = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="text-white">
               <h1 className="text-3xl font-bold tracking-tight">
-                Course Management
+                Batch Management
               </h1>
               <p className="text-indigo-100 mt-1 text-sm md:text-base">
-                Create and manage educational courses with detailed roadmaps
+                Manage course batches and student assignments
               </p>
             </div>
             
@@ -226,7 +219,7 @@ const Course: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search courses..."
+                  placeholder="Search batches..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
@@ -256,7 +249,7 @@ const Course: React.FC = () => {
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-white text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all font-medium text-sm shadow-md hover:shadow-lg"
             >
               <PlusIcon className="w-5 h-5" />
-              <span>Add Course</span>
+              <span>Add Batch</span>
             </button>
             
             <button className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/20 text-white border border-white/30 rounded-lg hover:bg-white/30 transition-all font-medium text-sm">
@@ -276,7 +269,7 @@ const Course: React.FC = () => {
                 <FunnelIcon className="w-5 h-5 text-indigo-600" />
                 <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
                 <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">
-                  {[searchTerm && 'Search', filterStatus && 'Status'].filter(Boolean).length} active
+                  {[searchTerm && 'Search', filterCourse && 'Course'].filter(Boolean).length} active
                 </span>
               </div>
               <button
@@ -311,17 +304,18 @@ const Course: React.FC = () => {
                 </div>
               </div>
 
-              {/* Status Filter */}
+              {/* Course Filter */}
               <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <label className="block text-sm font-medium text-gray-700">Course</label>
                 <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
+                  value={filterCourse}
+                  onChange={(e) => setFilterCourse(e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
                 >
-                  <option value="">All statuses</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="">All courses</option>
+                  {courses.map((course) => (
+                    <option key={course._id} value={course._id}>{course.title}</option>
+                  ))}
                 </select>
               </div>
 
@@ -333,7 +327,7 @@ const Course: React.FC = () => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
                 >
-                  <option value="title">Title</option>
+                  <option value="name">Name</option>
                   <option value="createdAt">Created Date</option>
                 </select>
               </div>
@@ -378,13 +372,13 @@ const Course: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <BookOpenIcon className="w-7 h-7 text-white" />
+                    <UserGroupIcon className="w-7 h-7 text-white" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900">{filteredCourses.length}</p>
-                  <p className="text-sm font-medium text-gray-600">Total Courses</p>
+                  <p className="text-3xl font-bold text-gray-900">{filteredBatches.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Total Batches</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
@@ -392,7 +386,7 @@ const Course: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  +12.5%
+                  +8.2%
                 </span>
                 <span className="text-xs text-gray-500">from last month</span>
               </div>
@@ -407,15 +401,15 @@ const Course: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <CheckIcon className="w-7 h-7 text-white" />
+                    <AcademicCapIcon className="w-7 h-7 text-white" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">
-                    {filteredCourses.filter(c => c.isActive).length}
+                    {filteredBatches.reduce((acc, batch) => acc + (batch.students?.length || 0), 0)}
                   </p>
-                  <p className="text-sm font-medium text-gray-600">Active Courses</p>
+                  <p className="text-sm font-medium text-gray-600">Total Students</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
@@ -423,7 +417,7 @@ const Course: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  +8.3%
+                  +15.3%
                 </span>
                 <span className="text-xs text-gray-500">from last month</span>
               </div>
@@ -438,15 +432,13 @@ const Course: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <ChartBarIcon className="w-7 h-7 text-white" />
+                    <AcademicCapIcon className="w-7 h-7 text-white" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-orange-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>
-                  <p className="text-3xl font-bold text-gray-900">
-                    {filteredCourses.reduce((acc, course) => acc + (course.roadmap?.length || 0), 0)}
-                  </p>
-                  <p className="text-sm font-medium text-gray-600">Total Roadmap Items</p>
+                  <p className="text-3xl font-bold text-gray-900">{courses.length}</p>
+                  <p className="text-sm font-medium text-gray-600">Active Courses</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
@@ -454,7 +446,7 @@ const Course: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  +15.7%
+                  +3.1%
                 </span>
                 <span className="text-xs text-gray-500">from last month</span>
               </div>
@@ -469,20 +461,17 @@ const Course: React.FC = () => {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    <ClockIcon className="w-7 h-7 text-white" />
+                    <UserGroupIcon className="w-7 h-7 text-white" />
                   </div>
                   <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-purple-500 rounded-full border-2 border-white"></div>
                 </div>
                 <div>
                   <p className="text-3xl font-bold text-gray-900">
-                    {filteredCourses.filter(c => {
-                      const createdDate = new Date(c.createdAt);
-                      const currentDate = new Date();
-                      return createdDate.getMonth() === currentDate.getMonth() &&
-                             createdDate.getFullYear() === currentDate.getFullYear();
-                    }).length}
+                    {filteredBatches.length > 0 
+                      ? Math.round(filteredBatches.reduce((acc, batch) => acc + (batch.students?.length || 0), 0) / filteredBatches.length)
+                      : 0}
                   </p>
-                  <p className="text-sm font-medium text-gray-600">Created This Month</p>
+                  <p className="text-sm font-medium text-gray-600">Avg Students/Batch</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
@@ -490,7 +479,7 @@ const Course: React.FC = () => {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  +5.2%
+                  +5.7%
                 </span>
                 <span className="text-xs text-gray-500">from last month</span>
               </div>
@@ -508,10 +497,10 @@ const Course: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold">
-                    {editingCourse ? "Edit Course" : "Add New Course"}
+                    {editingBatch ? "Edit Batch" : "Add New Batch"}
                   </h3>
                   <p className="text-indigo-100 mt-1">
-                    {editingCourse ? "Update course information and details" : "Fill in details to create a new course"}
+                    {editingBatch ? "Update batch information and student assignments" : "Fill in details to create a new batch"}
                   </p>
                 </div>
                 <button
@@ -526,110 +515,100 @@ const Course: React.FC = () => {
             {/* Form Content */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
               <div className="space-y-8">
-                {/* Course Information Section */}
+                {/* Batch Information Section */}
                 <div>
                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <BookOpenIcon className="w-4 h-4 text-indigo-600" />
+                      <UserGroupIcon className="w-4 h-4 text-indigo-600" />
                     </div>
-                    Course Information
+                    Batch Information
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">Course Title</label>
+                      <label className="block text-sm font-medium text-gray-700">Batch Name</label>
                       <input
                         type="text"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        placeholder="Enter course title"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Enter batch name"
                         className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">Status</label>
+                      <label className="block text-sm font-medium text-gray-700">Course</label>
                       <select
-                        value={formData.isActive ? "active" : "inactive"}
-                        onChange={(e) => setFormData({ ...formData, isActive: e.target.value === "active" } as typeof formData)}
+                        value={formData.course}
+                        onChange={(e) => setFormData({ ...formData, course: e.target.value })}
                         className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                        required
                       >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
+                        <option value="">Select a course</option>
+                        {courses.map((course) => (
+                          <option key={course._id} value={course._id}>
+                            {course.title}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>
                 </div>
 
-                {/* Course Description Section */}
+                {/* Student Selection Section */}
                 <div>
                   <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                     <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
+                      <AcademicCapIcon className="w-4 h-4 text-purple-600" />
                     </div>
-                    Course Description
+                    Student Selection
                   </h4>
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Enter course description"
-                      rows={4}
-                      className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                    />
-                  </div>
-                </div>
-
-                {/* Course Roadmap Section */}
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                    <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <ChartBarIcon className="w-4 h-4 text-green-600" />
-                    </div>
-                    Course Roadmap
-                  </h4>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Roadmap Items</label>
-                    <div className="flex gap-2 mb-3">
-                      <input
-                        type="text"
-                        value={formData.roadmapInput}
-                        onChange={(e) => setFormData({ ...formData, roadmapInput: e.target.value })}
-                        onKeyPress={(e) => e.key === 'Enter' && addRoadmapItem()}
-                        placeholder="Add roadmap item"
-                        className="flex-1 px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
-                      />
-                      <button
-                        type="button"
-                        onClick={addRoadmapItem}
-                        className="px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200 font-medium text-gray-700"
-                      >
-                        Add Item
-                      </button>
-                    </div>
-                    {formData.roadmap.length > 0 && (
-                      <div className="space-y-2">
-                        {formData.roadmap.map((item, index) => (
-                          <div key={index} className="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-lg border border-gray-200">
-                            <div className="flex items-center gap-3">
-                              <span className="w-6 h-6 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-xs font-medium">
-                                {index + 1}
-                              </span>
-                              <span className="text-sm font-medium text-gray-700">{item}</span>
+                    <label className="block text-sm font-medium text-gray-700">Select Students</label>
+                    <div className="border border-gray-300 rounded-lg p-4 max-h-60 overflow-y-auto">
+                      {students.length === 0 ? (
+                        <div className="text-center py-4 text-gray-500">
+                          No students available. Please add students first.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {students.map((student) => (
+                            <div key={student._id} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                id={`student-${student._id}`}
+                                checked={formData.students.includes(student._id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setFormData({
+                                      ...formData,
+                                      students: [...formData.students, student._id]
+                                    });
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      students: formData.students.filter(id => id !== student._id)
+                                    });
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                              <label htmlFor={`student-${student._id}`} className="ml-3 flex items-center cursor-pointer">
+                                <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
+                                  {student.name?.charAt(0).toUpperCase() || 'S'}
+                                </div>
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{student.name}</div>
+                                  <div className="text-xs text-gray-500">{student.email}</div>
+                                </div>
+                              </label>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeRoadmapItem(index)}
-                              className="text-red-500 hover:text-red-700 transition-colors"
-                            >
-                              <TrashIcon className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500">
+                      {formData.students.length} student{formData.students.length !== 1 ? 's' : ''} selected
+                    </div>
                   </div>
                 </div>
 
@@ -644,7 +623,7 @@ const Course: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={editingCourse ? handleUpdateCourse : handleCreateCourse}
+                    onClick={editingBatch ? handleUpdateBatch : handleCreateBatch}
                     disabled={isSubmitting}
                     className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
                   >
@@ -654,7 +633,7 @@ const Course: React.FC = () => {
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     )}
-                    {editingCourse ? "Update Course" : "Add Course"}
+                    {editingBatch ? "Update Batch" : "Add Batch"}
                   </button>
                 </div>
               </div>
@@ -663,11 +642,11 @@ const Course: React.FC = () => {
         </div>
       )}
 
-      {/* COURSES TABLE */}
+      {/* BATCHES TABLE */}
       <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 overflow-hidden">
         <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Course List</h2>
-          <p className="text-sm text-gray-600">Manage and view all course information</p>
+          <h2 className="text-lg font-semibold text-gray-900">Batch List</h2>
+          <p className="text-sm text-gray-600">Manage and view all batch information</p>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -679,37 +658,34 @@ const Course: React.FC = () => {
                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setCourses(courses.map(course => ({ ...course, selected: checked })));
+                      setBatches(batches.map(batch => ({ ...batch, selected: checked })));
                     }}
                   />
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   <button
                     onClick={() => {
-                      setSortBy("title");
+                      setSortBy("name");
                       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
                     }}
                     className="flex items-center gap-2 text-gray-700 hover:text-indigo-600 transition-colors font-semibold"
                   >
-                    <span>Course Title</span>
+                    <span>Batch Name</span>
                     <span className="flex flex-col">
-                      <svg className={`w-3 h-3 ${sortBy === "title" && sortOrder === "asc" ? "text-indigo-600" : "text-gray-400"}`} fill="currentColor" viewBox="0 0 20 20">
+                      <svg className={`w-3 h-3 ${sortBy === "name" && sortOrder === "asc" ? "text-indigo-600" : "text-gray-400"}`} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414 1.414l4 4a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
-                      <svg className={`w-3 h-3 -mt-1 ${sortBy === "title" && sortOrder === "desc" ? "text-indigo-600" : "text-gray-400"}`} fill="currentColor" viewBox="0 0 20 20">
+                      <svg className={`w-3 h-3 -mt-1 ${sortBy === "name" && sortOrder === "desc" ? "text-indigo-600" : "text-gray-400"}`} fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293 3.293a1 1 0 011.414-1.414l-4 4a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </span>
                   </button>
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Description
+                  Course
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Roadmap Items
+                  Students
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                   <button
@@ -738,40 +714,40 @@ const Course: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
                         <svg className="w-8 h-8 text-indigo-600 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">Loading courses...</h3>
-                      <p className="text-sm text-gray-500 max-w-md">Please wait while we fetch course data.</p>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">Loading batches...</h3>
+                      <p className="text-sm text-gray-500 max-w-md">Please wait while we fetch batch data.</p>
                     </div>
                   </td>
                 </tr>
-              ) : filteredCourses.length === 0 ? (
+              ) : filteredBatches.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-16 text-center">
+                  <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mb-4">
                         <MagnifyingGlassIcon className="w-10 h-10 text-gray-400" />
                       </div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-1">No courses found</h3>
+                      <h3 className="text-lg font-medium text-gray-900 mb-1">No batches found</h3>
                       <p className="text-sm text-gray-500 max-w-md">
-                        {courses.length === 0 
-                          ? "Get started by creating your first course. Add a title, description, and roadmap items to structure your educational content."
-                          : "Try adjusting your filters or search to find courses you're looking for."}
+                        {batches.length === 0 
+                          ? "Get started by creating your first batch. Assign it to a course and start adding students."
+                          : "Try adjusting your filters or search to find batches you're looking for."}
                       </p>
-                      {courses.length === 0 && (
+                      {batches.length === 0 && (
                         <button
                           onClick={() => setShowCreateForm(true)}
                           className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
                         >
-                          Create First Course
+                          Create First Batch
                         </button>
                       )}
-                      {courses.length > 0 && (
+                      {batches.length > 0 && (
                         <button
                           onClick={clearFilters}
                           className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
@@ -783,20 +759,20 @@ const Course: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                paginatedCourses.map((course) => (
+                paginatedBatches.map((batch) => (
                   <tr 
-                    key={course._id} 
-                    className={`hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 ${course.selected ? 'bg-gradient-to-r from-indigo-50 to-purple-50' : ''}`}
+                    key={batch._id} 
+                    className={`hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 ${batch.selected ? 'bg-gradient-to-r from-indigo-50 to-purple-50' : ''}`}
                   >
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
-                        checked={course.selected || false}
+                        checked={batch.selected || false}
                         onChange={() => {
-                          const updatedCourses = courses.map(c => 
-                            c._id === course._id ? { ...c, selected: !c.selected } : c
+                          const updatedBatches = batches.map(b => 
+                            b._id === batch._id ? { ...b, selected: !b.selected } : b
                           );
-                          setCourses(updatedCourses);
+                          setBatches(updatedBatches);
                         }}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 focus:ring-offset-0"
                       />
@@ -805,62 +781,48 @@ const Course: React.FC = () => {
                       <div className="flex items-center gap-3">
                         <div className="relative">
                           <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                            {course.title?.charAt(0).toUpperCase() || 'C'}
+                            {batch.name?.charAt(0).toUpperCase() || 'B'}
                           </div>
-                          {course.isActive && (
-                            <div className="absolute -bottom-0 -right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
-                          )}
                         </div>
                         <div>
-                          <div className="text-sm font-semibold text-gray-900">{course.title}</div>
-                          <div className="text-xs text-gray-500">ID: {course._id?.slice(-8) || 'N/A'}</div>
+                          <div className="text-sm font-semibold text-gray-900">{batch.name}</div>
+                          <div className="text-xs text-gray-500">ID: {batch._id?.slice(-8) || 'N/A'}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 max-w-xs truncate" title={course.description || 'No description'}>
-                        {course.description || 'No description'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full ${
-                        course.isActive 
-                          ? 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border border-green-200' 
-                          : 'bg-gradient-to-r from-red-50 to-pink-50 text-red-800 border border-red-200'
-                      }`}>
-                        <div className={`w-2 h-2 rounded-full ${
-                          course.isActive ? 'bg-green-500' : 'bg-red-500'
-                        }`}></div>
-                        {course.isActive ? 'Active' : 'Inactive'}
-                      </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <ChartBarIcon className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-900">{course.roadmap?.length || 0}</span>
+                        <AcademicCapIcon className="h-4 w-4 text-gray-400" />
+                        <div className="text-sm text-gray-900">{getCourseTitle(batch.course)}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">{new Date(course.createdAt).toLocaleDateString()}</div>
+                      <div className="flex items-center gap-2">
+                        <UserGroupIcon className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-900">{batch.students?.length || 0}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900">{new Date(batch.createdAt).toLocaleDateString()}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleView(course)}
+                          onClick={() => handleView(batch)}
                           className="p-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200 group"
                           aria-label="View"
                         >
                           <EyeIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => openEditForm(course)}
+                          onClick={() => openEditForm(batch)}
                           className="p-2 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 transition-all duration-200 group"
                           aria-label="Edit"
                         >
                           <PencilSquareIcon className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteCourse(course._id)}
+                          onClick={() => handleDeleteBatch(batch._id)}
                           className="p-2 rounded-lg hover:bg-red-50 hover:text-red-600 transition-all duration-200 group"
                           aria-label="Delete"
                         >
@@ -880,7 +842,7 @@ const Course: React.FC = () => {
           <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-t border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="text-sm text-gray-700">
-                Showing <span className="font-semibold">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-semibold">{Math.min(currentPage * itemsPerPage, filteredCourses.length)}</span> of <span className="font-semibold">{filteredCourses.length}</span> courses
+                Showing <span className="font-semibold">{((currentPage - 1) * itemsPerPage) + 1}</span> to <span className="font-semibold">{Math.min(currentPage * itemsPerPage, filteredBatches.length)}</span> of <span className="font-semibold">{filteredBatches.length}</span> batches
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -958,4 +920,4 @@ const Course: React.FC = () => {
   );
 };
 
-export default Course;
+export default Batch;

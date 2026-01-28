@@ -10,6 +10,16 @@ class UserApis {
     return res.data;
   };
 
+  static getAllUsersByRole = async (role: string) => {
+    const res = await axiosInstance.get(`${this.usersPath}/role/${role}`);
+    return res.data;
+  };
+
+  static getUserById = async (id: string) => {
+    const res = await axiosInstance.get(`${this.usersPath}/${id}`);
+    return res.data;
+  };
+
   static createUser = async (data:any) => {
     const res = await axiosInstance.post(this.usersPath, data);
     return res.data;
@@ -43,7 +53,7 @@ class UserApis {
   };
 
   static getUserByToken = async () => {
-    const res = await axiosInstance.post("/get-user");
+    const res = await axiosInstance.get("/me");
     return res.data;
   };
 }
