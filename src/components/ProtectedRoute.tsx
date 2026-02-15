@@ -1,8 +1,9 @@
 // import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider";
+import type { UserRole } from "../types/interfaces";
 
-const ProtectedRoute = ({ allowedRoles = [] }:{allowedRoles:string[]}) => {
+const ProtectedRoute = ({ allowedRoles = [] }:{allowedRoles:UserRole[]}) => {
   const { user } = useAuth();
 
 //   if (loading) {
@@ -11,7 +12,7 @@ const ProtectedRoute = ({ allowedRoles = [] }:{allowedRoles:string[]}) => {
 
   // 🔐 Not logged in
   if (!user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles.length && !allowedRoles.includes(user.role)) {

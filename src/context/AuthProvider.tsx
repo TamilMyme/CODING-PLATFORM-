@@ -6,14 +6,30 @@ import React, {
   useState,
 } from "react";
 import UserApis from "../apis/UserApis";
-// import { useNavigate } from "react-router-dom";
-import StudentApis from "../apis/StudentApis";
+import type { UserRole } from "../types/interfaces";
 
 interface User {
   _id: string;
-  role: string;
+  role: UserRole;
   email: string;
-  name: string;
+  name?: string;
+  phone?: string;
+  organisation?: {
+    _id: string;
+    name: string;
+  };
+  batch?: {
+    _id: string;
+    name: string;
+  };
+  enrolledCourses?: string[];
+  points: number;
+  streak: number;
+  maxStreak: number;
+  isActive: boolean;
+  isDeleted: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface AuthContextType {
@@ -23,6 +39,7 @@ interface AuthContextType {
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
   isLoading: boolean;
   setIsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,23 +52,32 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLogin, setLogin] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  const logout = async () => {
+    try {
+      await UserApis.signOut();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setUser(null);
+      setLogin(false);
+      localStorage.removeItem("token");
+    }
+  };
+
   useEffect(() => {
     const fetchAuthUser = async () => {
+      setIsLoading(true);
       try {
-        // Try employee/user first
+        // Get user by token
         const res = await UserApis.getUserByToken();
         setUser(res.data);
         setLogin(true);
-      } catch (err) {
-        try {
-          // Fallback to student
-          const res = await StudentApis.getStudentByToken();
-          setUser(res.data);
-          setLogin(true);
-        } catch (error) {
-          setUser(null);
-          setLogin(false);
-        }
+      } catch (error) {
+        setUser(null);
+        setLogin(false);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -60,7 +86,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ isLogin, setLogin, user, setUser, isLoading, setIsLoading }}
+      value={{ isLogin, setLogin, user, setUser, isLoading, setIsLoading, logout }}
     >
       {children}
     </AuthContext.Provider>

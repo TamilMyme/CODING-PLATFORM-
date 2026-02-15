@@ -1,3 +1,4 @@
+import type { UserRole } from "../types/interfaces";
 import { axiosInstance } from "./config";
 
 class UserApis {
@@ -7,6 +8,16 @@ class UserApis {
 
   static getAllUsers = async () => {
     const res = await axiosInstance.get(this.usersPath);
+    return res.data;
+  };
+
+  static getAllUsersByRole = async (role: UserRole) => {
+    const res = await axiosInstance.get(`${this.usersPath}/role/${role}`);
+    return res.data;
+  };
+
+  static getUserById = async (id: string) => {
+    const res = await axiosInstance.get(`${this.usersPath}/${id}`);
     return res.data;
   };
 
@@ -43,7 +54,27 @@ class UserApis {
   };
 
   static getUserByToken = async () => {
-    const res = await axiosInstance.post("/get-user");
+    const res = await axiosInstance.get("/me");
+    return res.data;
+  };
+
+  // ================= STREAK =================
+
+  static getUserStreakData = async (userId: string) => {
+    const res = await axiosInstance.get(`${this.usersPath}/${userId}/streak`);
+    return res.data;
+  };
+
+  static updateUserActivity = async (userId: string, data: { date: string; count: number }) => {
+    const res = await axiosInstance.post(`${this.usersPath}/${userId}/activity`, data);
+    return res.data;
+  };
+
+  static getUserActivityLog = async (userId: string, startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const res = await axiosInstance.get(`${this.usersPath}/${userId}/activity-log?${params.toString()}`);
     return res.data;
   };
 }

@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from "react";
 const MenuPopup: React.FC<{ children: React.ReactNode; onClose: () => void,className:string }> = ({
   children,
   onClose,
-  className ="absolute right-16 mt-2 w-36 bg-white border border-secondary rounded-md shadow-lg z-20"
+  className ="absolute right-16 mt-2 w-36 bg-white border border-secondary rounded-md shadow-lg z-0"
 }) => {
   const ref = useRef<HTMLDivElement>(null);
 

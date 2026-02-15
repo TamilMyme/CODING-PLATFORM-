@@ -16,7 +16,7 @@ const sizeMap = {
 
 const Avatar: React.FC<AvatarProps> = ({ name, email, imageUrl, size = 'md', collapsed }) => {
   const initials = name
-    .split(' ')
+    ?.split(' ')
     .map(n => n[0])
     .join('')
     .toUpperCase()
